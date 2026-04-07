@@ -2023,14 +2023,13 @@ dependencies = [
  "indoc",
  "insta",
  "itertools 0.14.0",
+ "log",
  "pretty_assertions",
  "pulldown-cmark",
  "ratatui",
  "ratatui-core",
  "rstest",
  "syntect",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

@@ -49,7 +49,7 @@ use syntect::{
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
-use tracing::{debug, instrument, warn};
+use log::{debug, warn};
 
 pub use crate::options::Options;
 pub use crate::style_sheet::{DefaultStyleSheet, StyleSheet};
@@ -217,7 +217,6 @@ where
         }
     }
 
-    #[instrument(level = "debug", skip(self))]
     fn handle_event(&mut self, event: Event<'a>) {
         match event {
             Event::Start(tag) => self.start_tag(tag),
@@ -513,7 +512,6 @@ where
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
     fn set_code_highlighter(&mut self, lang: &str) {
         if let Some(syntax) = SYNTAX_SET.find_syntax_by_token(lang) {
             debug!("Starting code block with syntax: {:?}", lang);
@@ -526,12 +524,10 @@ where
     }
 
     #[cfg(feature = "highlight-code")]
-    #[instrument(level = "trace", skip(self))]
     fn clear_code_highlighter(&mut self) {
         self.code_highlighter = None;
     }
 
-    #[instrument(level = "trace", skip(self))]
     fn push_inline_style(&mut self, style: Style) {
         let current_style = self.inline_styles.last().copied().unwrap_or_default();
         let style = current_style.patch(style);
@@ -540,12 +536,10 @@ where
         debug!("Current inline styles: {:?}", self.inline_styles);
     }
 
-    #[instrument(level = "trace", skip(self))]
     fn pop_inline_style(&mut self) {
         self.inline_styles.pop();
     }
 
-    #[instrument(level = "trace", skip(self))]
     fn push_line(&mut self, line: Line<'a>) {
         let style = self.line_styles.last().copied().unwrap_or_default();
         let mut line = line.patch_style(style);
@@ -562,7 +556,6 @@ where
         self.text.lines.push(line);
     }
 
-    #[instrument(level = "trace", skip(self))]
     fn push_span(&mut self, span: Span<'a>) {
         if let Some(line) = self.text.lines.last_mut() {
             line.push_span(span);
@@ -572,13 +565,11 @@ where
     }
 
     /// Store the link to be appended to the link text
-    #[instrument(level = "trace", skip(self))]
     fn push_link(&mut self, dest_url: CowStr<'a>) {
         self.link = Some(dest_url);
     }
 
     /// Append the link to the current line
-    #[instrument(level = "trace", skip(self))]
     fn pop_link(&mut self) {
         if let Some(link) = self.link.take() {
             self.push_span(" (".into());
@@ -592,37 +583,21 @@ where
 mod tests {
     use indoc::indoc;
     use pretty_assertions::assert_eq;
-    use rstest::{fixture, rstest};
-    use tracing::level_filters::LevelFilter;
-    use tracing::subscriber::{self, DefaultGuard};
-    use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::fmt::time::Uptime;
-
+    use rstest::rstest;
     use super::*;
 
-    #[fixture]
-    fn with_tracing() -> DefaultGuard {
-        let subscriber = tracing_subscriber::fmt()
-            .with_test_writer()
-            .with_timer(Uptime::default())
-            .with_max_level(LevelFilter::TRACE)
-            .with_span_events(FmtSpan::ENTER)
-            .finish();
-        subscriber::set_default(subscriber)
-    }
-
     #[rstest]
-    fn empty(_with_tracing: DefaultGuard) {
+    fn empty() {
         assert_eq!(from_str(""), Text::default());
     }
 
     #[rstest]
-    fn paragraph_single(_with_tracing: DefaultGuard) {
+    fn paragraph_single() {
         assert_eq!(from_str("Hello, world!"), Text::from("Hello, world!"));
     }
 
     #[rstest]
-    fn paragraph_soft_break(_with_tracing: DefaultGuard) {
+    fn paragraph_soft_break() {
         assert_eq!(
             from_str(indoc! {"
                 Hello
@@ -637,7 +612,7 @@ mod tests {
     }
 
     #[rstest]
-    fn paragraph_multiple(_with_tracing: DefaultGuard) {
+    fn paragraph_multiple() {
         assert_eq!(
             from_str(indoc! {"
                 Paragraph 1
@@ -649,7 +624,7 @@ mod tests {
     }
 
     #[rstest]
-    fn rule(_with_tracing: DefaultGuard) {
+    fn rule() {
         assert_eq!(
             from_str(indoc! {"
                 Paragraph 1
@@ -663,7 +638,7 @@ mod tests {
     }
 
     #[rstest]
-    fn headings(_with_tracing: DefaultGuard) {
+    fn headings() {
         let h1 = Style::new().on_cyan().bold().underlined();
         let h2 = Style::new().cyan().bold();
         let h3 = Style::new().cyan().bold().italic();
@@ -697,7 +672,7 @@ mod tests {
     }
 
     #[rstest]
-    fn heading_attributes(_with_tracing: DefaultGuard) {
+    fn heading_attributes() {
         let h1 = Style::new().on_cyan().bold().underlined();
         let meta = Style::new().dim();
 
@@ -725,7 +700,7 @@ mod tests {
         /// I was having difficulty getting the right number of newlines between paragraphs, so this
         /// test is to help debug and ensure that.
         #[rstest]
-        fn after_paragraph(_with_tracing: DefaultGuard) {
+        fn after_paragraph() {
             assert_eq!(
                 from_str(indoc! {"
                 Hello, world!
@@ -740,7 +715,7 @@ mod tests {
             );
         }
         #[rstest]
-        fn single(_with_tracing: DefaultGuard) {
+        fn single() {
             assert_eq!(
                 from_str("> Blockquote"),
                 Text::from(Line::from_iter([">", " ", "Blockquote"]).style(STYLE))
@@ -748,7 +723,7 @@ mod tests {
         }
 
         #[rstest]
-        fn soft_break(_with_tracing: DefaultGuard) {
+        fn soft_break() {
             assert_eq!(
                 from_str(indoc! {"
                 > Blockquote 1
@@ -761,7 +736,7 @@ mod tests {
         }
 
         #[rstest]
-        fn multiple(_with_tracing: DefaultGuard) {
+        fn multiple() {
             assert_eq!(
                 from_str(indoc! {"
                 > Blockquote 1
@@ -777,7 +752,7 @@ mod tests {
         }
 
         #[rstest]
-        fn multiple_with_break(_with_tracing: DefaultGuard) {
+        fn multiple_with_break() {
             assert_eq!(
                 from_str(indoc! {"
                 > Blockquote 1
@@ -793,7 +768,7 @@ mod tests {
         }
 
         #[rstest]
-        fn nested(_with_tracing: DefaultGuard) {
+        fn nested() {
             assert_eq!(
                 from_str(indoc! {"
                 > Blockquote 1
@@ -809,7 +784,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_single(_with_tracing: DefaultGuard) {
+    fn list_single() {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -819,7 +794,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_multiple(_with_tracing: DefaultGuard) {
+    fn list_multiple() {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -833,7 +808,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_ordered(_with_tracing: DefaultGuard) {
+    fn list_ordered() {
         assert_eq!(
             from_str(indoc! {"
                 1. List item 1
@@ -847,7 +822,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_nested(_with_tracing: DefaultGuard) {
+    fn list_nested() {
         assert_eq!(
             from_str(indoc! {"
                 - List item 1
@@ -861,7 +836,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_task_items(_with_tracing: DefaultGuard) {
+    fn list_task_items() {
         assert_eq!(
             from_str(indoc! {"
                 - [ ] Incomplete
@@ -875,7 +850,7 @@ mod tests {
     }
 
     #[rstest]
-    fn list_task_items_ordered(_with_tracing: DefaultGuard) {
+    fn list_task_items_ordered() {
         assert_eq!(
             from_str(indoc! {"
                 1. [ ] Incomplete
@@ -890,7 +865,7 @@ mod tests {
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn highlighted_code(_with_tracing: DefaultGuard) {
+    fn highlighted_code() {
         // Assert no extra newlines are added
         let highlighted_code = from_str(indoc! {"
             ```rust
@@ -905,7 +880,7 @@ mod tests {
 
     #[cfg_attr(not(feature = "highlight-code"), ignore)]
     #[rstest]
-    fn highlighted_code_with_indentation(_with_tracing: DefaultGuard) {
+    fn highlighted_code_with_indentation() {
         // Assert no extra newlines are added
         let highlighted_code_indented = from_str(indoc! {"
             ```rust
@@ -925,7 +900,7 @@ mod tests {
 
     #[cfg_attr(feature = "highlight-code", ignore)]
     #[rstest]
-    fn unhighlighted_code(_with_tracing: DefaultGuard) {
+    fn unhighlighted_code() {
         // Assert no extra newlines are added
         let unhiglighted_code = from_str(indoc! {"
             ```rust
@@ -941,7 +916,7 @@ mod tests {
     }
 
     #[rstest]
-    fn inline_code(_with_tracing: DefaultGuard) {
+    fn inline_code() {
         let text = from_str("Example of `Inline code`");
         insta::assert_snapshot!(text);
 
@@ -956,7 +931,7 @@ mod tests {
     }
 
     #[rstest]
-    fn superscript(_with_tracing: DefaultGuard) {
+    fn superscript() {
         assert_eq!(
             from_str("H ^2^ O"),
             Text::from(Line::from_iter([
@@ -968,7 +943,7 @@ mod tests {
     }
 
     #[rstest]
-    fn subscript(_with_tracing: DefaultGuard) {
+    fn subscript() {
         assert_eq!(
             from_str("H ~2~ O"),
             Text::from(Line::from_iter([
@@ -980,7 +955,7 @@ mod tests {
     }
 
     #[rstest]
-    fn metadata_block(_with_tracing: DefaultGuard) {
+    fn metadata_block() {
         assert_eq!(
             from_str(indoc! {"
                 ---
@@ -1000,7 +975,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strong(_with_tracing: DefaultGuard) {
+    fn strong() {
         assert_eq!(
             from_str("**Strong**"),
             Text::from(Line::from("Strong".bold()))
@@ -1008,7 +983,7 @@ mod tests {
     }
 
     #[rstest]
-    fn emphasis(_with_tracing: DefaultGuard) {
+    fn emphasis() {
         assert_eq!(
             from_str("*Emphasis*"),
             Text::from(Line::from("Emphasis".italic()))
@@ -1016,7 +991,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strikethrough(_with_tracing: DefaultGuard) {
+    fn strikethrough() {
         assert_eq!(
             from_str("~~Strikethrough~~"),
             Text::from(Line::from("Strikethrough".crossed_out()))
@@ -1024,7 +999,7 @@ mod tests {
     }
 
     #[rstest]
-    fn strong_emphasis(_with_tracing: DefaultGuard) {
+    fn strong_emphasis() {
         assert_eq!(
             from_str("**Strong *emphasis***"),
             Text::from(Line::from_iter([
@@ -1035,7 +1010,7 @@ mod tests {
     }
 
     #[rstest]
-    fn link(_with_tracing: DefaultGuard) {
+    fn link() {
         assert_eq!(
             from_str("[Link](https://example.com)"),
             Text::from(Line::from_iter([
